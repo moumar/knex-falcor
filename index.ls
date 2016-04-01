@@ -1,15 +1,20 @@
 require! {
-  'prelude-ls': {flatten, camelize}
+  'prelude-ls': {flatten, camelize, unique}
 }
 
 module.exports = (knex) ->
   return { create-route, chronological-list, has-many }
 
-  function create-route table, keys, fkeys = [], polymorphic-fields = []
+  function create-route collection-name, keys, opts = {}
+    fkeys = opts.fkeys or []
+    polymorphic-fields = opts.polymorphic-fields or []
+    table = opts.table or collection-name
+    collection-name = camelize collection-name
+    # console.log {collection-name, keys, table, fkeys, polymorphic-fields}
     keys ++= 'id'
-    all-keys = keys ++ (fkeys.map (- /_id$/))
+    all-keys = keys ++ (fkeys.map (- /_id$/)) |> unique
     routes = [
-      route: "#{camelize table}ById[{integers}].#{JSON.stringify all-keys}"
+      route: "#{collection-name}ById[{integers}].#{JSON.stringify all-keys}"
       get: (path-set) ->
         # console.log table, (JSON.stringify path-set)
         keys = path-set.2
@@ -17,8 +22,11 @@ module.exports = (knex) ->
 
         q = knex table
           .where-in 'id', ids
-          # .select ['id'] ++ keys # ++ fkeys # FIXME, should filter keys on path-set.2, beware off foreign keys
+          # .select ['id'] ++ keys # ++ fkeys # FIXME, should filter keys on path-set.2, beware of foreign keys
           .select!
+
+        if opts.filter
+          opts.filter q
 
         q
           .then (items) ->
@@ -44,8 +52,9 @@ module.exports = (knex) ->
           # .then (value) ->       {$type: 'atom', $expires: -1000, value}
           # .tap dump
     ]
+
     polymorphic-routes = polymorphic-fields.map (polymorphic-field) ->
-      route: "#{camelize table}ById[{integers}].#{polymorphic-field}['type','item']"
+      route: "#{collection-name}ById[{integers}].#{polymorphic-field}['type','item']"
       get: (path-set) ->
         # keys = path-set.2
         ids = path-set.1
@@ -128,8 +137,12 @@ module.exports = (knex) ->
             # .tap console.log
     ]
 
-  function chronological-list table, selector, expires
-    route: "#{camelize table}[{ranges}]"
+  function chronological-list collection-name, opts = {}
+    table = opts.table or collection-name
+    collection-name = if opts.table then collection-name else camelize table
+    order-by = opts.order-by or 'created_at'
+
+    route: "#{collection-name}[{ranges}]"
     get: (path-set) ->
       range = path-set.1.0
 
@@ -137,24 +150,27 @@ module.exports = (knex) ->
         .offset range.from
         .limit (range.to - range.from) + 1
         .select "#{table}.id"
-        .order-by "#{table}.created_at", 'desc'
+        .order-by "#{table}.#{order-by}", 'desc'
 
-      if selector
-        selector.call this, q
+      if opts.filter
+        opts.filter.call this, q
 
       q
         .map (item, i) ->
           value =
             $type: 'ref'
-            value: ["#{camelize table}ById", item.id]
+            value: ["#{collection-name}ById", item.id]
 
-          if expires
-            value.$expires = -expires
+          if opts.expires
+            value.$expires = -opts.expires
 
-          path: [(camelize table), i + range.from]
+          path: [collection-name, i + range.from]
           value: value
 
         # .tap dump
 
-group-by-unique = (fn, items) -->
+function group-by-unique fn, items
   {[(fn item), item] for item in items}
+
+function dump response
+  console.log JSON.stringify(response, null, 2)
