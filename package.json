@@ -1,0 +1,15 @@
+{
+  "name": "knex-falcor",
+  "version": "0.0.1",
+  "description": "wrapper around knex database and falcor router",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "git": "https://github.com/moumar/knex-falcor.git",
+  "dependencies": {
+    "prelude-ls": "^1.1.2"
+  }
+}
