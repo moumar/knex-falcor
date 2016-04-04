@@ -41,9 +41,15 @@ module.exports = (knex) ->
                       if value
                         value = {$type: 'ref', value: [(camelize key) + 'sById', value]}
                     else
+                      # console.log item, key
                       value = item[key]
                       if typeof! value == 'Date'
                         value = value.toISOString!
+                      else if key == 'id'
+                        value = +value
+
+                      if value == void
+                        value = {$type: 'atom'}
                     # value = {$type: 'atom', $expires: -3600*1000, value}
                   else
                     value = {$type: 'error', value: 'not found'}
@@ -152,7 +158,7 @@ module.exports = (knex) ->
         .select "#{table}.id"
         .order-by "#{table}.#{order-by}", 'desc'
 
-      if opts.filter
+      if opts.filter?
         opts.filter.call this, q
 
       q
